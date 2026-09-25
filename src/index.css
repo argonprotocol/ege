@@ -1,0 +1,38 @@
+/* Enable Tailwind utilities while retaining the existing reset and component styles. */
+@layer theme, base, components, utilities;
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+:root {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  color: #475569;
+  background: #f5edf7;
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid #a21caf; outline-offset: 3px; }
+
+/* Desktop foundation; narrow viewports scroll until mobile support is added. */
+.app-shell { min-width: 1224px; min-height: 100vh; }
+.workspace {
+  position: relative;
+  z-index: 2; /* Keep slider details above the header scoreboard. */
+  isolation: isolate;
+  min-height: max(600px, calc(100vh - 77px));
+  margin: 10px;
+}
+.workspace::before {
+  content: '';
+  position: absolute;
+  inset: 40% 0 0;
+  z-index: -1;
+  pointer-events: none;
+  background: #fdfbfd;
+  border: 1px solid #b9bcc4;
+  border-radius: 3px;
+  box-shadow: 0 0 2px 2px #0000000d, inset 1px 1px 0 #ffffff80;
+  mask-image: linear-gradient(transparent, black 55%);
+}
