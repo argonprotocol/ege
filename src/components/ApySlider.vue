@@ -32,7 +32,7 @@
             <TooltipRoot>
               <TooltipTrigger as-child>
                 <button type="button" data-apy-warning :aria-label="`${label} return warning`"
-                  class="absolute left-full ml-3 flex size-8 cursor-help items-center justify-center border-0 bg-transparent p-0 text-red-600"
+                  class="absolute left-full ml-3 flex size-8 cursor-default items-center justify-center border-0 bg-transparent p-0 text-red-600"
                   @pointerdown.stop @pointermove.stop @pointerup.stop @click.stop @keydown.stop>
                   <svg viewBox="0 0 40 40" aria-hidden="true" class="size-8 shrink-0">
                     <path d="M12 1H28L39 12V28L28 39H12L1 28V12Z" fill="currentColor" />

@@ -208,16 +208,26 @@ export function runGrowthCycle(current: GrowthCycleState): GrowthCycleResult {
 
 export function* iterateGrowthCycle(
   current: GrowthCycleState,
+  options: { miningSeats?: number; bitcoinTarget?: number } = {},
 ): Generator<GrowthCycleResult, GrowthCycleResult, void> {
   if (!current.activeSide || current.status !== "running") {
     return emptyResult(current);
   }
 
   const side = current.activeSide;
+  const miningSeats = side === 'mining' ? options.miningSeats : undefined;
+  const bitcoinTarget = side === 'vaulting' ? options.bitcoinTarget : undefined;
+  if (bitcoinTarget !== undefined && (!Number.isFinite(bitcoinTarget) || bitcoinTarget < current.bitcoinLocked || bitcoinTarget > MAX_USABLE_BITCOIN)) {
+    throw new RangeError('Requested BTC must be within the starting amount and BTC capacity');
+  }
+  if (miningSeats !== undefined && (!Number.isSafeInteger(miningSeats) || miningSeats < current.seatCount)) {
+    throw new RangeError('Requested miners must be a whole count at or above the starting count');
+  }
+  if (miningSeats === current.seatCount || bitcoinTarget === current.bitcoinLocked) return emptyResult(current);
   let state = current;
   let result: GrowthCycleResult = { ...emptyResult(current), outcome: "in-progress" };
   while (true) {
-    const day = runGrowthDay(state, side);
+    const day = runGrowthDay(state, side, miningSeats, bitcoinTarget);
     if (!isValidGrowthState(day.next)) {
       result = {
         ...result,
@@ -229,8 +239,10 @@ export function* iterateGrowthCycle(
       return result;
     }
     const complete = side === "mining"
-      ? day.endingReturnApy <= RETURN_THRESHOLD_APY + MINING_RETURN_TOLERANCE
-      : day.endingReturnApy < RETURN_THRESHOLD_APY;
+      ? miningSeats !== undefined ? day.next.seatCount >= miningSeats
+        : day.endingReturnApy <= RETURN_THRESHOLD_APY + MINING_RETURN_TOLERANCE
+      : bitcoinTarget !== undefined ? day.next.bitcoinLocked >= bitcoinTarget
+        : day.endingReturnApy < RETURN_THRESHOLD_APY;
     const days = result.days + 1;
     const unchanged = Object.entries(state).every(([key, value]) => (
       typeof value !== "number" || key === "cycle" || key === "elapsedDays"
@@ -368,46 +380,40 @@ function forecastAuctionRevenue(state: GrowthCycleState): number {
   return Math.min(state.miningAuctionRevenue, expectedRevenue);
 }
 
-function runGrowthDay(current: GrowthCycleState, side: GrowthSide): GrowthDayResult {
-  const proposed = settleGrowthDay(current, side);
-  if (side !== "mining" || proposed.endingReturnApy >= RETURN_THRESHOLD_APY - MINING_RETURN_TOLERANCE) return proposed;
-  // Seat dilution and ARGNOT repricing happen inside the projection. Solve the
-  // incoming auction against that fully settled state, never clamp displayed APY.
-  let low = 1e-12;
-  let high = 1;
-  let settled = settleGrowthDay(current, side, low);
-  if (settled.endingReturnApy < RETURN_THRESHOLD_APY) return proposed;
-  for (let iteration = 0; iteration < 48; iteration++) {
-    const scale = (low + high) / 2;
-    const candidate = settleGrowthDay(current, side, scale);
-    if (candidate.endingReturnApy >= RETURN_THRESHOLD_APY) {
-      low = scale;
-      settled = candidate;
-    } else {
-      high = scale;
+function runGrowthDay(current: GrowthCycleState, side: GrowthSide, miningSeats?: number, bitcoinTarget?: number): GrowthDayResult {
+  // Use the full daily quote for timing, but fund only the requested portion
+  // of its BTC addition and corresponding vault collateral growth.
+  if (side === 'vaulting' && bitcoinTarget !== undefined) {
+    const fullDay = settleGrowthDay(current, side);
+    const fullAddition = fullDay.next.bitcoinLocked - current.bitcoinLocked;
+    if (bitcoinTarget >= fullDay.next.bitcoinLocked) return fullDay;
+    if (fullAddition > 0) {
+      const fraction = (bitcoinTarget - current.bitcoinLocked) / fullAddition;
+      const vaultLimit = current.vaultArgonSecuritization
+        + fraction * (fullDay.next.vaultArgonSecuritization - current.vaultArgonSecuritization);
+      return settleGrowthDay(current, side, miningSeats, bitcoinTarget, vaultLimit);
     }
-    if (Math.abs(settled.endingReturnApy - RETURN_THRESHOLD_APY) <= MINING_RETURN_TOLERANCE / 10) break;
   }
-  return settled;
+  return settleGrowthDay(current, side, miningSeats, bitcoinTarget);
 }
 
-function settleGrowthDay(current: GrowthCycleState, side: GrowthSide, miningBidScale = 1): GrowthDayResult {
+function settleGrowthDay(current: GrowthCycleState, side: GrowthSide, miningSeats?: number, bitcoinTarget?: number, vaultLimit?: number): GrowthDayResult {
   // Resolve the market's price response before committing today's replacement
   // bid. All projections start from the same opening balances: previews neither
   // advance a day nor feed their minted income back into a second day's bids.
-  const preview = projectGrowthDay(current, side, undefined, miningBidScale);
+  const preview = projectGrowthDay(current, side, undefined, miningSeats, bitcoinTarget, vaultLimit);
   const entryPrice = preview.next.argonotPriceUsd;
   if (entryPrice === current.argonotPriceUsd) return preview;
 
-  let settled = projectGrowthDay(current, side, entryPrice, miningBidScale);
+  let settled = projectGrowthDay(current, side, entryPrice, miningSeats, bitcoinTarget, vaultLimit);
   if (entryPrice > settled.maximumFundedArgonotPriceUsd) {
     // Repricing the incoming bid can change funding demand. If that leaves less
     // room for a price increase, settle the largest affordable price first.
     const affordablePrice = maximizeOptionalValue(current.argonotPriceUsd, entryPrice, price => {
-      const candidate = projectGrowthDay(current, side, price, miningBidScale);
+      const candidate = projectGrowthDay(current, side, price, miningSeats, bitcoinTarget, vaultLimit);
       return price <= candidate.maximumFundedArgonotPriceUsd;
     });
-    settled = projectGrowthDay(current, side, affordablePrice, miningBidScale);
+    settled = projectGrowthDay(current, side, affordablePrice, miningSeats, bitcoinTarget, vaultLimit);
   }
   return settled;
 }
@@ -416,18 +422,21 @@ function projectGrowthDay(
   current: GrowthCycleState,
   side: GrowthSide,
   entryArgonotPriceUsd?: number,
-  miningBidScale = 1,
+  miningSeats?: number,
+  bitcoinTarget?: number,
+  vaultLimit?: number,
 ): GrowthDayResult & { maximumFundedArgonotPriceUsd: number } {
   const startingReturnApy = side === "mining" ? calculateNewCohortMiningApy(current) : current.returns.vaultingApy;
   const biddingPrice = entryArgonotPriceUsd ?? current.argonotPriceUsd;
   // The engine stages aggregate auction revenue by phase. Operator entry quotes
   // are calculated separately every day so staged revenue cannot set cheap bids.
-  const dailyMining = runDailyMiningFrame({ ...current, argonotPriceUsd: biddingPrice }, side === "mining", miningBidScale);
-  const argonsBidPerSeat = dailyMining.argonsBidPerSeat;
-  const auctionRevenue = dailyMining.auctionRevenue;
+  const dailyMining = runDailyMiningFrame({ ...current, argonotPriceUsd: biddingPrice }, side === "mining", miningSeats);
+  let argonsBidPerSeat = dailyMining.argonsBidPerSeat;
+  let auctionRevenue = dailyMining.auctionRevenue;
   const maximumDailyVaultSecuritization = Math.min(
     current.vaultArgonSecuritization * (1 + MAX_DAILY_COMPETITION_GROWTH),
     maximumVaultSecuritization(current),
+    vaultLimit ?? Infinity,
   );
   let vaultSecuritizationGrowthCapped = false;
   let vaultArgonSecuritization = current.vaultArgonSecuritization;
@@ -441,7 +450,7 @@ function projectGrowthDay(
     vaultArgonSecuritization = Math.min(desiredVaultSecuritization, maximumDailyVaultSecuritization);
   }
 
-  const argonBidAdded = current.rewardReductionActive
+  let argonBidAdded = current.rewardReductionActive
     ? auctionRevenue - current.miningAuctionRevenue
     : side === "mining"
     ? Math.max(0, auctionRevenue - current.miningAuctionRevenue)
@@ -476,6 +485,7 @@ function projectGrowthDay(
   const availableBitcoinSpace = Math.max(0, vaultArgonSecuritization - currentBitcoinLockedValue);
   const desiredBitcoinMint = Math.min(
     availableBitcoinSpace,
+    bitcoinTarget === undefined ? Infinity : Math.max(0, bitcoinTarget - current.bitcoinLocked) * current.bitcoinPriceUsd / current.argonPriceUsd,
     currentBitcoinLockedValue * MAX_DAILY_BITCOIN_GROWTH,
     Math.max(0, MAX_USABLE_BITCOIN - current.bitcoinLocked)
       * current.bitcoinPriceUsd / current.argonPriceUsd,
@@ -510,16 +520,22 @@ function projectGrowthDay(
         <= maximumOptionalGrowthUsd
     ))
     : 0;
-  const bitcoinLocked = Math.min(
+  let bitcoinLocked = Math.min(
+    bitcoinTarget ?? MAX_USABLE_BITCOIN,
     MAX_USABLE_BITCOIN,
     current.bitcoinLocked * (1 + MAX_DAILY_BITCOIN_GROWTH),
     current.bitcoinLocked + fundedBitcoinMint * current.argonPriceUsd / current.bitcoinPriceUsd,
   );
+  // Normalize only floating-point roundoff at the funded target. Issuance
+  // below is still calculated from the actual bounded lock increment.
+  if (bitcoinTarget !== undefined && bitcoinTarget - bitcoinLocked <= Number.EPSILON * Math.max(1, bitcoinTarget) * 4) {
+    bitcoinLocked = bitcoinTarget;
+  }
   const bitcoinLockedAdded = Math.max(0, bitcoinLocked - current.bitcoinLocked);
   // Issue only for the actual bounded lock increment, including at the ceiling.
   const bitcoinMintLoaded = bitcoinLockedAdded * current.bitcoinPriceUsd / current.argonPriceUsd;
   const idealBondCapital = Math.max(current.bondCapital, vaultArgonSecuritization);
-  const bondCapital = optionalGrowthAllowed
+  let bondCapital = optionalGrowthAllowed
     ? maximizeOptionalValue(current.bondCapital, idealBondCapital, value => (
       projectedGrowthUsd(bitcoinMintLoaded)
         + additionalMiningRequest(bitcoinMintLoaded, value) * current.argonPriceUsd
@@ -541,12 +557,23 @@ function projectGrowthDay(
     vaultArgonSecuritization = Math.min(desiredVaultSecuritization, maximumDailyVaultSecuritization);
   }
 
-  const vaultSecuritizationAdded = Math.max(
-    0,
-    vaultArgonSecuritization - current.vaultArgonSecuritization,
-  );
   const finalIdealBondCapital = Math.max(current.bondCapital, vaultArgonSecuritization);
   const miningMintRequested = additionalMiningRequest(bitcoinMintLoaded, bondCapital);
+  // A request for tomorrow's mining issuance is not today's available supply.
+  // Fund vault collateral first, then bids, then optional bond allocations.
+  // Keep the request above so unmet demand can be funded on a later day.
+  const allocationBudget = (circulationAfterMining + bitcoinMintLoaded) * (1 - UNISWAP_RESERVE_SHARE);
+  vaultArgonSecuritization = Math.min(vaultArgonSecuritization, allocationBudget);
+  const fundedAuctionRevenue = Math.min(auctionRevenue, Math.max(0, allocationBudget - vaultArgonSecuritization));
+  if (fundedAuctionRevenue < auctionRevenue) {
+    const fundingFraction = auctionRevenue > 0 ? fundedAuctionRevenue / auctionRevenue : 0;
+    dailyMining.cohortRevenues = dailyMining.cohortRevenues.map(value => value * fundingFraction);
+    auctionRevenue = fundedAuctionRevenue;
+    argonsBidPerSeat = auctionRevenue / dailyMining.seatCount;
+    argonBidAdded = auctionRevenue - current.miningAuctionRevenue;
+  }
+  bondCapital = Math.min(bondCapital, Math.max(0, allocationBudget - vaultArgonSecuritization - auctionRevenue));
+  const vaultSecuritizationAdded = Math.max(0, vaultArgonSecuritization - current.vaultArgonSecuritization);
   const growthBeforeStakesUsd = projectedGrowthUsd(bitcoinMintLoaded)
     + miningMintRequested * current.argonPriceUsd;
   const nextArgonotCirculation = current.argonotCirculation + argonotMintLoaded;
@@ -725,6 +752,7 @@ export function calculateMiningEntryBid(state: GrowthCycleState): number {
 }
 
 export function calculateNewCohortMiningApy(state: GrowthCycleState): number {
+  if (state.capacityMarketPressure > 0) return calculateCapacityMiningApy(state);
   const cohorts = state.miningAuctionCohortRevenues;
   const latestCohortRevenue = cohorts[cohorts.length - 1];
   if (latestCohortRevenue === undefined) return calculateMiningApy(state);
@@ -737,6 +765,48 @@ export function calculateNewCohortMiningApy(state: GrowthCycleState): number {
     latestCohortReward,
     state.miningCohortMintedArgons[state.miningCohortMintedArgons.length - 1] / state.miningCohortSeats[DAYS_PER_COHORT - 1] * state.seatCount,
   );
+}
+
+// Near capacity, quote the next ten days of income rather than annualizing
+// rewards already earned by the latest cohort. Keep seats, capital and prices
+// fixed; roll committed rewards daily and issue the known pending request once.
+function calculateCapacityMiningApy(state: GrowthCycleState): number {
+  let forecast = state;
+  let argonRewardsPerSeat = 0;
+  let argonotRewardsPerSeat = 0;
+  for (let day = 1; day <= DAYS_PER_COHORT; day += 1) {
+    const mining = runDailyMiningFrame(forecast, false);
+    argonRewardsPerSeat += mining.argonMinted / mining.seatCount;
+    argonotRewardsPerSeat += mining.argonotMinted / mining.seatCount;
+    const pressure = capacityPressure(state.expectedDaysToBitcoinCapacity === null
+      ? null : Math.max(0, state.expectedDaysToBitcoinCapacity - day));
+    const burn = Math.min(forecast.argonCirculation + mining.argonMinted,
+      mining.settledAuctionRevenue * Math.max(0, MAX_VAULT_PROFIT_RATE - calculateVaultRevenueShare(forecast)));
+    const minedArgons = forecast.minedArgons + mining.argonMinted;
+    const originSupply = minedArgons + forecast.bitcoinArgons;
+    const miningShare = originSupply > 0 ? minedArgons / originSupply : 0;
+    forecast = {
+      ...forecast,
+      baseArgonRewards: nextBaseArgonRewards(forecast, pressure),
+      miningCohortBaseArgonRewards: mining.cohortBaseArgonRewards,
+      miningCohortSeats: mining.cohortSeats,
+      dailySeatCount: mining.dailySeatCount,
+      miningAuctionRevenue: mining.auctionRevenue,
+      miningAuctionCohortRevenues: mining.cohortRevenues,
+      argonsBidPerSeat: mining.argonsBidPerSeat,
+      miningCohortMintedArgons: mining.cohortMintedArgons,
+      argonCirculation: forecast.argonCirculation + mining.argonMinted - burn,
+      minedArgons: Math.max(0, minedArgons - burn * miningShare),
+      bitcoinArgons: Math.max(0, forecast.bitcoinArgons - burn * (1 - miningShare)),
+      pendingMiningMint: 0,
+    };
+  }
+  const latest = state.miningCohortSeats.length - 1;
+  const bidPerSeat = state.miningAuctionCohortRevenues[latest] / state.miningCohortSeats[latest];
+  const bidValue = bidPerSeat * state.argonPriceUsd + state.argonotsBidPerSeat * state.argonotPriceUsd;
+  const endingValue = argonRewardsPerSeat * state.argonPriceUsd
+    + (state.argonotsBidPerSeat + argonotRewardsPerSeat) * state.argonotPriceUsd;
+  return bidValue > 0 ? tenDayReturnToApy((endingValue - bidValue) / bidValue * 100) : 0;
 }
 
 export function calculateAverageMiningBaseRewards(state: GrowthCycleState): number {
@@ -806,7 +876,7 @@ interface DailyMiningResult {
 function runDailyMiningFrame(
   current: GrowthCycleState,
   competitionEnabled: boolean,
-  bidScale = 1,
+  requestedSeats?: number,
 ): DailyMiningResult {
   const dailySeats = current.dailySeatCount;
   // Once capacity is anticipated, bids and reward commitments expire together
@@ -833,11 +903,26 @@ function runDailyMiningFrame(
     argonRewardsPerSeat: miningArgonRewardsPerSeat(current),
     argonotRewardsPerSeat: current.baseArgonotRewards / current.seatCount,
   });
-  // Aggregate revenue follows the selected adjustment phase. Fresh operator
-  // bids use calculateMiningEntryBid, including during vaulting days.
-  const targetBidPerSeat = competitionEnabled
-    ? Math.max(current.argonsBidPerSeat, rewardBasedBidPerSeat)
-    : current.rewardReductionActive ? Math.min(current.argonsBidPerSeat, rewardBasedBidPerSeat) : current.argonsBidPerSeat;
+  // Mining competition adds seats at the existing bid per miner. More miners
+  // increase aggregate bids and dilute rewards; bids are not raised to normalize
+  // APY while holding competition fixed. Vaulting retains its taper behavior.
+  const targetBidPerSeat = !competitionEnabled && current.rewardReductionActive
+    ? Math.min(current.argonsBidPerSeat, rewardBasedBidPerSeat) : current.argonsBidPerSeat;
+  const retainedSeats = current.miningCohortSeats.slice(1).reduce((total, seats) => total + seats, 0);
+  // Without mining competition, replace exactly the retiring cohort. Reusing
+  // the newest cohort's size silently grows miners during BTC settlements.
+  const replacementSeats = current.seatCount - retainedSeats;
+  const targetSeats = requestedSeats ?? (targetBidPerSeat > 0
+    ? Math.ceil(rewardBasedBidPerSeat * current.seatCount / targetBidPerSeat) : current.seatCount);
+  // An exact target may need fewer new seats than the last incoming cohort.
+  // Replace the retiring seats, then add only the miners the user requested.
+  const minimumDailySeats = requestedSeats === undefined ? dailySeats : current.seatCount - retainedSeats;
+  const desiredDailySeats = competitionEnabled ? Math.max(minimumDailySeats, targetSeats - retainedSeats) : replacementSeats;
+  const boundedDailySeats = competitionEnabled ? Math.min(
+    desiredDailySeats,
+    Math.ceil(dailySeats * (1 + MAX_DAILY_COMPETITION_GROWTH)),
+    Math.ceil(current.seatCount * (1 + MAX_DAILY_COMPETITION_GROWTH)) - retainedSeats,
+  ) : replacementSeats;
   const expiredCohortRevenue = cohortRevenues.shift() ?? 0;
   const retainedAuctionRevenue = cohortRevenues.reduce((total, value) => total + value, 0);
   const maximumMiningBidCapital = Math.max(
@@ -847,9 +932,8 @@ function runDailyMiningFrame(
       - current.bondCapital,
   );
   const affordableDailyRevenue = Math.max(0, maximumMiningBidCapital - retainedAuctionRevenue);
-  const desiredDailyRevenue = targetBidPerSeat * dailySeats;
-  const maximumDailyBidRevenue = current.argonsBidPerSeat
-    * (1 + MAX_DAILY_COMPETITION_GROWTH) * dailySeats;
+  const desiredDailyRevenue = targetBidPerSeat * desiredDailySeats;
+  const maximumDailyBidRevenue = targetBidPerSeat * boundedDailySeats;
   const maximumDailyTotalRevenue = Math.max(
     0,
     current.miningAuctionRevenue * (1 + MAX_DAILY_COMPETITION_GROWTH) - retainedAuctionRevenue,
@@ -859,16 +943,19 @@ function runDailyMiningFrame(
     affordableDailyRevenue,
     maximumDailyBidRevenue,
     maximumDailyTotalRevenue,
-  ) * bidScale);
+  ));
 
   const latestDailyRevenue = cohortRevenues[cohortRevenues.length - 1] ?? 0;
-  const retainedSeats = current.miningCohortSeats.slice(1).reduce((total, seats) => total + seats, 0);
-  const requiredSeats = Math.ceil(rewardBasedBidPerSeat * current.seatCount / MAX_MINING_BID_PER_SEAT);
-  const dailySeatCount = Math.max(
-    dailySeats,
-    Math.ceil(latestDailyRevenue / MAX_MINING_BID_PER_SEAT),
-    requiredSeats - retainedSeats,
-  );
+  // Fund new seats at the quoted bid; rounding may leave a fraction of one
+  // bid unused. Existing cohorts keep their own seats and committed revenue.
+  const affordableDailySeats = targetBidPerSeat > 0
+    ? Math.floor(latestDailyRevenue / targetBidPerSeat + 1e-9) : dailySeats;
+  const dailySeatCount = competitionEnabled
+    ? Math.max(minimumDailySeats, Math.min(boundedDailySeats, affordableDailySeats))
+    : replacementSeats;
+  if (competitionEnabled && affordableDailySeats >= minimumDailySeats) {
+    cohortRevenues[cohortRevenues.length - 1] = dailySeatCount * targetBidPerSeat;
+  }
   const cohortSeats = [...current.miningCohortSeats.slice(1), dailySeatCount];
   const seatCount = cohortSeats.reduce((total, seats) => total + seats, 0);
   const cohortMintedArgons = retainedMintedArgons.map((earned, index) => (
@@ -878,7 +965,7 @@ function runDailyMiningFrame(
     seatCount,
     dailySeatCount,
     cohortSeats,
-    argonsBidPerSeat: latestDailyRevenue / dailySeatCount,
+    argonsBidPerSeat: cohortRevenues[cohortRevenues.length - 1] / dailySeatCount,
     auctionRevenue: cohortRevenues.reduce((total, value) => total + value, 0),
     cohortRevenues,
     cohortBaseArgonRewards,

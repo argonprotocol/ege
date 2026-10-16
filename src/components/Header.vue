@@ -1,203 +1,133 @@
 <template>
   <header class="app-header">
     <div class="branding">
-      <a class="argon-link" href="https://argon.network/" aria-label="Back to Argon Network">
-      <svg class="back-icon" viewBox="0 0 32 32" fill="none" stroke="currentColor" aria-hidden="true">
-        <path d="m17 6-10 10 10 10M25 6 15 16l10 10" />
-      </svg>
-      <Logo class="argon-logo" aria-hidden="true" />
-      </a>
-      <h1>The Growth Flywheel</h1>
+      <a class="back-to-argon" href="https://argon.network/" aria-label="Back to Argon Network" title="Back to Argon Network"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m11.25 19.5-7.5-7.5 7.5-7.5m9 15-7.5-7.5 7.5-7.5" /></svg></a>
+      <a class="brand-logo" href="https://argon.network/" aria-label="Argon Network"><Logo aria-hidden="true" /></a>
+      <div><div class="model-selector" @mouseenter="isModelMenuOpen = true" @mouseleave="isModelMenuOpen = false" @focusin="isModelMenuOpen = true" @focusout="closeModelMenuOnBlur" @keydown.esc.stop.prevent="isModelMenuOpen = false">
+        <h1><button type="button" class="model-selector-button" :aria-expanded="isModelMenuOpen" aria-controls="model-navigation" @click="isModelMenuOpen = true" @keydown.down.prevent="isModelMenuOpen = true">
+          Exponential Growth Engine Model
+          <svg class="model-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" /></svg>
+        </button></h1>
+        <nav v-show="isModelMenuOpen" id="model-navigation" class="model-dropdown" aria-label="Models">
+            <a href="https://sam.argon.network/">Ultimate Death Spiral Model</a>
+            <a href="https://llb.argon.network/">Liquid Locking for Bitcoin Model</a>
+        </nav>
+      </div><span>Discover how the ecosystem grows together</span></div>
     </div>
-    <section class="header-stats" aria-label="Growth Flywheel statistics">
-      <div v-for="group in statGroups" :key="group.title" class="stat-card">
-        <h2>{{ group.title }}</h2>
-        <dl>
-          <div v-for="stat in group.stats" :key="stat.label" class="stat">
-            <dt>
-              <TooltipProvider v-if="stat.label === 'Days'" :delay-duration="150">
-                <TooltipRoot>
-                  <TooltipTrigger as-child>
-                    <button type="button" class="days-trigger" aria-label="Days: view daily mining and vaulting APYs">Days</button>
-                  </TooltipTrigger>
-                  <TooltipPortal>
-                    <TooltipContent side="bottom" :side-offset="10" :collision-padding="12"
-                      class="days-tooltip">
-                      <div class="days-table-scroll" tabindex="0" role="region" aria-label="Daily mining and vaulting APYs">
-                        <table>
-                          <thead>
-                            <tr><th scope="col">Date</th><th scope="col">Mining APY</th><th scope="col">Vaulting APY</th></tr>
-                          </thead>
-                          <tbody>
-                            <tr v-for="day in view.days" :key="day.day"
-                              :aria-current="day.day === view.days[view.days.length - 1]?.day ? 'date' : undefined">
-                              <th scope="row">{{ formatDay(day.day) }}</th>
-                              <td>{{ formatDayApy(day.miningApy) }}</td>
-                              <td>{{ formatDayApy(day.vaultingApy) }}</td>
-                            </tr>
-                          </tbody>
-                        </table>
-                      </div>
-                      <TooltipArrow class="days-tooltip-arrow" />
-                    </TooltipContent>
-                  </TooltipPortal>
-                </TooltipRoot>
-              </TooltipProvider>
-              <template v-else>{{ stat.label }}</template>
-            </dt>
-            <dd v-if="typeof stat.value === 'number'" :title="stat.label === 'Current Value' ? 'Current simulated network value' : `Mainnet snapshot: ${mainnetUpdatedAt}`">₳{{ stat.value.toLocaleString('en-US', { notation: 'compact', maximumFractionDigits: 2 }) }}</dd>
-            <dd v-else :title="stat.label === 'Days' ? 'Simulated elapsed days; fractional days preview daily growth' : 'Sample value from the mockup'">{{ stat.value }}</dd>
-          </div>
-        </dl>
-      </div>
-    </section>
-    <nav class="header-actions" aria-label="Growth Flywheel actions">
-      <button v-for="action in actions" :key="action.label" type="button" disabled
-        :aria-label="action.label" :title="`${action.label} — coming soon`">
-        <component :is="action.icon" aria-hidden="true" />
-      </button>
-    </nav>
+    <div class="header-actions"><button class="icon-button" @click="$emit('reset')" title="Restart lesson" aria-label="Restart lesson"><ResetIcon /></button><button class="icon-button" @click="$emit('help')" title="About this simulation" aria-label="About this simulation"><InformationIcon /></button></div>
   </header>
+  <section class="portfolio-bar" aria-label="Simulated portfolio">
+    <TooltipProvider :delay-duration="150" :disable-hoverable-content="true">
+      <div v-for="group in statGroups" :key="group.className" class="stat-box" :class="group.className">
+        <TooltipRoot v-for="stat in group.stats" :key="stat.label">
+          <TooltipTrigger as-child>
+            <div class="header-stat" tabindex="0" role="group" :aria-label="`${stat.label}: ${stat.value}`">
+              <strong>{{ stat.value }}</strong><span>{{ stat.label }}</span>
+            </div>
+          </TooltipTrigger>
+          <TooltipPortal><TooltipContent class="formula-tooltip header-stat-tooltip" side="bottom" :side-offset="5" :collision-padding="12">
+            <p v-if="stat.description">{{ stat.description }}</p>
+            <dl v-if="stat.label === 'Current Circulation'" class="circulation-breakdown">
+              <div v-for="item in circulationBreakdown" :key="item.label"><dt>{{ item.label }}</dt><dd>{{ exactMoney(item.value) }}</dd></div>
+            </dl>
+            <TooltipArrow class="ecosystem-tooltip-arrow" :width="24.5" :height="12.25" />
+          </TooltipContent></TooltipPortal>
+        </TooltipRoot>
+        <div v-if="group.className === 'portfolio-values'" class="portfolio-callout starting-callout">
+          <span><button class="starting-customize" @click="$emit('customize')">Customize your starting investment</button></span>
+          <svg viewBox="0 0 90 30" preserveAspectRatio="none" fill="none" aria-hidden="true"><path d="M1 25h60q20 0 20-22m-5 7 5-7 5 7" /></svg>
+        </div>
+        <div v-if="group.className === 'portfolio-values return-stat'" class="simulation-control">
+          <button v-if="!playbackAlert" class="simulation-trigger" :disabled="playDisabled" :aria-label="running ? 'Pause full simulation' : 'Run full simulation'" @click="$emit('play')">
+            <span class="simulation-play"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path v-if="running" d="M6 4h4v16H6zM14 4h4v16h-4z" /><path v-else d="M7 3l14 9-14 9z" /></svg></span>
+            <span class="simulation-label">{{ running ? 'Pause Simulation' : 'Run Full Simulation' }}</span>
+          </button>
+          <TooltipRoot v-if="playbackAlert" :disable-hoverable-content="false">
+            <TooltipTrigger as-child>
+              <div class="playback-alert simulation-trigger" role="status" tabindex="0">
+                <span class="simulation-play"><svg viewBox="0 0 32 32" aria-hidden="true"><path fill="currentColor" d="M10 1h12l9 9v12l-9 9H10l-9-9V10z" /><path stroke="white" stroke-width="4" stroke-linecap="round" d="M16 9v9" /><circle cx="16" cy="24" r="2" fill="white" /></svg></span>
+                <p>{{ playbackAlert }}</p>
+              </div>
+            </TooltipTrigger>
+            <TooltipPortal><TooltipContent class="formula-tooltip header-stat-tooltip" side="bottom" :side-offset="5" :collision-padding="12">
+              <p>{{ playbackAlertDescription }}</p>
+              <TooltipArrow class="ecosystem-tooltip-arrow" :width="24.5" :height="12.25" />
+            </TooltipContent></TooltipPortal>
+          </TooltipRoot>
+          <p v-else-if="playbackStatus" class="playback-status" role="status">{{ playbackStatus }}</p>
+        </div>
+        <div v-if="group.className === 'network-stats'" class="portfolio-callout circulation-callout">
+          <svg viewBox="0 0 90 30" preserveAspectRatio="none" fill="none" aria-hidden="true"><path d="M89 25H29Q9 25 9 3m-5 7 5-7 5 7" /></svg>
+          <span><a :href="panicUrl" target="_blank" rel="noopener noreferrer">What if the market panics and dumps everything?</a></span>
+        </div>
+      </div>
+    </TooltipProvider>
+    <details class="portfolio-details"><summary>What changes my balance?</summary><p>This simulated {{ exactMoney(initialPortfolio) }} account starts with a 50/50 allocation to mining and vaulting. Its value includes income, bid costs, and changes in holdings’ value. Network competition is separate from spending this account’s funds.</p><p>Settled mining income: <b>{{ money(miningIncome) }}</b> · Settled vault income: <b>{{ money(vaultIncome) }}</b>. These are gross income, not total profit.</p><p>Days advance with your adjustments, not wall-clock time. Starting network snapshot: {{ new Date(snapshotAt).toLocaleDateString('en-US') }}.</p></details>
+  </section>
 </template>
-
 <script setup lang="ts">
-import { computed } from 'vue';
+const isModelMenuOpen = ref(false);
+function closeModelMenuOnBlur(event: FocusEvent) {
+  if (!(event.currentTarget as HTMLElement).contains(event.relatedTarget as Node | null)) {
+    isModelMenuOpen.value = false;
+  }
+}
+import { computed, ref } from 'vue';
 import { TooltipProvider, TooltipRoot, TooltipTrigger, TooltipPortal, TooltipContent, TooltipArrow } from 'reka-ui';
-import { useGrowthSimulation } from '../lib/useGrowthSimulation';
 import Logo from '../assets/logo.svg';
 import ResetIcon from '../assets/reset-outlined.svg';
-import DownloadIcon from '../assets/download-outlined.svg';
-import PlayIcon from '../assets/play-outlined.svg';
 import InformationIcon from '../assets/information-outlined.svg';
-import GithubIcon from '../assets/github-outlined.svg';
-import { mainnetUpdatedAt, startingNetworkValue } from '../lib/mainnet';
-
-// Personal portfolio metrics remain placeholders.
-const { view } = useGrowthSimulation();
-const timelineStart = new Date();
-const formatDay = (day: number) => {
-  const date = new Date(timelineStart);
-  date.setDate(date.getDate() + day);
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-};
-const formatDayApy = (apy: number) => `${apy.toLocaleString('en-US', {
-  notation: 'compact', maximumFractionDigits: 1,
-})}%`;
+import { mainnetBasics } from '../lib/mainnet';
+import { microgonToArgon } from '../lib/currencyUtils';
+const props = defineProps<{ circulation: number; currentCirculation: number; lockedBitcoins: number; issuance: { mining: number; bitcoin: number; burned: number }; days: string; snapshotAt: string; initialPortfolio: number; currentPortfolio: number; miningIncome: number; vaultIncome: number; canUndo: boolean; running: boolean; playDisabled: boolean; playbackStatus: string; playbackAlert: string }>();
+defineEmits<{ reset: []; help: []; undo: []; play: []; customize: [] }>();
+const panicUrl = computed(() => {
+  const url = new URL('http://localhost:5175/');
+  url.searchParams.set('circulation', String(props.currentCirculation));
+  url.searchParams.set('bitcoinsInLiquidLocks', String(props.lockedBitcoins));
+  return url.href;
+});
+const playbackAlertDescription = computed(() => {
+  if (/capacity/i.test(props.playbackAlert)) return 'This scenario can lock up to 17.5 million BTC in vaults. That limit has been reached, so automatic playback has stopped. You can advance one day to follow reward and bid adjustments, use Undo to explore another path, or restart the lesson.';
+  if (props.playbackAlert.includes('40%')) return 'Automatic playback has stopped because neither side can make another safe economic adjustment while keeping mining APY above 40%. Use Undo to explore a different path or restart the lesson.';
+  if (props.playbackAlert.includes('ten-year')) return 'Automatic playback has reached its ten-year simulation limit and stopped. Use Undo to revisit earlier adjustments or restart the lesson.';
+  return 'Both mining and vaulting have reached the 53.99% APY benchmark, so automatic playback has stopped. Use Undo to explore another path or restart the lesson.';
+});
+const gain = computed(() => props.initialPortfolio > 0 ? (props.currentPortfolio / props.initialPortfolio - 1) * 100 : 0);
+const exactMoney = (value: number) => `₳${value.toLocaleString('en-US', { maximumFractionDigits: 2 })}`;
+const money = (value: number) => `₳${value.toLocaleString('en-US', { notation: 'compact', maximumFractionDigits: 2 })}`;
 const statGroups = computed(() => [
-  { title: 'Global Network', stats: [
-    { label: 'Starting Value', value: startingNetworkValue },
-    { label: 'Current Value', value: view.value.network.networkValueUsd / view.value.network.argonPriceUsd },
+  { className: 'portfolio-values', stats: [
+    { label: 'Starting Portfolio', value: money(props.initialPortfolio), description: `Your simulated account starts with ${exactMoney(props.initialPortfolio)}, split equally between mining and vaulting.` },
+    { label: 'Current Return', value: `${gain.value.toLocaleString('en-US', { notation: 'compact', minimumFractionDigits: Math.abs(gain.value) < 1000 ? 2 : 0, maximumFractionDigits: 2 })}%`, description: 'The percentage change in your portfolio since the simulation started: (current portfolio ÷ starting portfolio − 1) × 100. This is your total simulated return, not annualized APY.' },
   ] },
-  { title: 'Timeframe', stats: [
-      { label: 'Days', value: view.value.network.elapsedDays.toLocaleString('en-US', { maximumFractionDigits: 2 }) }
-    ] },
-  { title: 'Personal Portfolio', stats: [
-    { label: 'Starting Value', value: '₳10k' },
-    { label: 'Current Value', value: '₳10.34k' },
+  { className: 'portfolio-values return-stat', stats: [
+    { label: 'Simulated Days', value: props.days, description: 'Time advances with your adjustments, not wall-clock time. Each adjustment selects daily settlements for the simulation.' },
+  ] },
+  { className: 'network-stats', stats: [
+    { label: 'Current Portfolio', value: money(props.currentPortfolio), description: `Your account is currently worth ${exactMoney(props.currentPortfolio)}. This includes income, bid costs, and changes in the value of your holdings.` },
+    { label: 'Current Circulation', value: money(props.currentCirculation), description: 'Argons in circulation, combining the starting mainnet supply with simulated issuance, minus simulated burns.' },
   ] },
 ]);
-const actions = [
-  { label: 'Reset to defaults', icon: ResetIcon },
-  { label: 'Download data', icon: DownloadIcon },
-  { label: 'Watch video', icon: PlayIcon },
-  { label: 'More information', icon: InformationIcon },
-  { label: 'Open source code', icon: GithubIcon },
-];
+const circulationBreakdown = computed(() => [
+  { label: 'From Mining', value: microgonToArgon(mainnetBasics.microgonsInCirculation.fromMining) + props.issuance.mining },
+  { label: 'From Bitcoin', value: microgonToArgon(mainnetBasics.microgonsInCirculation.fromBitcoin) + props.issuance.bitcoin },
+  { label: 'Simulated Burns', value: props.issuance.burned },
+  { label: 'Current Circulation', value: props.currentCirculation },
+]);
 </script>
-
 <style scoped>
-.app-header {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: minmax(330px, 1.15fr) minmax(0, 2.6fr) minmax(330px, 1.15fr);
-  grid-template-rows: 57px;
-  align-items: center;
-  gap: 10px;
-  height: 57px;
-  padding: 0 20px;
-  border-bottom: 1px solid #b9bcc4;
-  box-shadow: 0 1px 0 white;
-}
+.model-selector { position: relative; min-width: 0; }
+.model-selector-button { display: flex; align-items: center; gap: 8px; padding: 0; border: 0; background: transparent; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.model-selector-button:focus-visible { outline: 2px solid #a526df; outline-offset: 4px; border-radius: 4px; }
+.model-caret { width: 16px; height: 16px; flex-shrink: 0; }
+.model-dropdown { position: absolute; left: 0; top: 100%; z-index: 3000; width: max-content; max-width: calc(100vw - 32px); padding: 4px; border-radius: 4px; background: white; box-shadow: 0 10px 15px -3px #0000001a, 0 0 0 1px #1118270d; font-size: clamp(14px, 1.2vw, 20px); font-weight: 200; line-height: 1.4; color: #475569; }
+.model-dropdown a { display: block; position: static; padding: 8px 12px; border-radius: 3px; color: inherit; text-decoration: none; white-space: normal; }
+.model-dropdown a:hover, .model-dropdown a:focus-visible { color: #73179e; background: #FAF4FC; }
+@media (max-width: 640px) { .model-dropdown { font-size: 16px; } }
+.app-header { position: relative; z-index: 10; }
 
-.branding { display: flex; align-items: center; gap: 10px; }
-.argon-link { display: flex; align-items: center; gap: 8px; color: #73179e; }
-.back-icon { width: 28px; height: 28px; opacity: .4; }
-.argon-link:hover .back-icon { opacity: 1; }
-.argon-logo { width: 32px; height: 32px; }
-.argon-logo :deep(path) { fill: #73179e; }
-h1 { margin: 0; font-size: 24px; line-height: 32px; font-weight: 200; white-space: nowrap; }
-.header-stats { align-self: start; display: grid; grid-template-columns: 2fr 1fr 2fr; gap: 5px; }
-.stat-card { position: relative; text-align: center; }
-.stat-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: #fdfbfd;
-  border: 1px solid #b9bcc4;
-  border-radius: 3px;
-  box-shadow: 0 2px 3px #0003;
-  mask-image: linear-gradient(transparent, black 55%);
-}
-h2 {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 56px;
-  margin: 0 8px;
-  border-bottom: 1px solid #94a3b826;
-  color: #92969e;
-  font-size: 15px;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-dl { display: flex; justify-content: space-around; margin: 0; padding: 14px 8px 16px; }
-.stat { display: flex; flex-direction: column; }
-dt { order: 1; color: #969aa3; font-size: 14px; line-height: 20px; white-space: nowrap; }
-dd { margin: 0; color: #080808; font-size: 24px; line-height: 30px; font-weight: 700; }
-.days-trigger {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  cursor: help;
-  text-decoration: underline dotted;
-  text-underline-offset: 3px;
-}
-.days-trigger:focus-visible { outline: 2px solid #8720b5; outline-offset: 3px; border-radius: 2px; }
-.days-tooltip {
-  z-index: 50;
-  max-width: calc(100vw - 24px);
-  padding: 8px;
-  border: 1px solid #c6bdcc;
-  border-radius: 6px;
-  background: #fdfbfd;
-  color: #34343e;
-  box-shadow: 0 8px 24px #0002;
-  font-size: 13px;
-}
-.days-table-scroll { max-height: min(320px, var(--reka-tooltip-content-available-height)); overflow: auto; }
-.days-tooltip table { border-collapse: collapse; white-space: nowrap; font-variant-numeric: tabular-nums; }
-.days-tooltip th, .days-tooltip td { padding: 8px 12px; text-align: right; }
-.days-tooltip th:first-child { text-align: left; }
-.days-tooltip thead th { position: sticky; top: 0; background: #fdfbfd; color: #77717d; font-weight: 600; }
-.days-tooltip tbody th { font-weight: 500; }
-.days-tooltip tbody tr { border-top: 1px solid #eee1f3; }
-.days-tooltip tbody tr[aria-current] { background: #f5edf7; }
-.days-tooltip-arrow { fill: #fdfbfd; }
-.header-actions { display: flex; justify-content: flex-end; gap: 4px; }
-.header-actions button {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 40px;
-  padding: 2px;
-  border: 0;
-  background: transparent;
-  opacity: .65;
-  cursor: not-allowed;
-}
-.header-actions svg { width: 24px; height: 24px; }
+.playback-alert { position: static; gap: 5px; }
+.playback-alert .simulation-play { cursor: default; background: #f7f4fa; border-color: #ded8e4; }
+.playback-alert svg { width: 22px; height: 22px; }
 </style>

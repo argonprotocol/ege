@@ -1,4 +1,4 @@
-# The Growth Flywheel
+# Exponential Growth Engine Model
 
 A desktop foundation for TGF, built with Vue, TypeScript, and Vite.
 It retains Argon's branding and the visual styling of the original LLB website.
@@ -69,46 +69,42 @@ fallback uses circulating Argon and Argonot values when the total is unavailable
 
 ## Connected slider model
 
-The sliders use a direct-transfer scenario, separate from the copied engine's
-daily playback. Each phase starts from the last committed state and previews changes
-without accumulating repeated transfers. Releasing and re-grabbing the same
-slider keeps the phase reversible. Either slider can be used at any time. Switching
-sides commits the current adjustment, even before its APY floor, and uses it as the
-new baseline. Escape or a cancelled pointer restores only the active adjustment's
-starting state. The header tracks elapsed days; there is no cycle counter. Reload
-resets the scenario.
+The competition sliders select actual daily settlements from the growth engine.
+Mining settlements add competing miners at the existing bid per miner. Aggregate
+bids rise and the fixed network rewards are shared across more miners. The final
+integer cohort may cross below the APY benchmark; bids are not repriced to force
+an exact endpoint APY.
+The diagram, circulation, prices, elapsed days, and simulated ₳10,000 portfolio
+all use the same settled state. The portfolio starts with a 50/50 mining/vaulting
+allocation and receives that state's daily income; APY is not compounded into
+its balance directly.
 
-Lowering Mining APY solves the website's ten-day bid formula with fixed prices
-and reward allocations. The vault receives the change in its share of auction
-income, calculated by `vaultCalculator.ts`, and its APY increases.
+Current circulation equals starting circulation plus mining issuance plus
+BTC-backed issuance minus burned Argons. Mining bids, Argon vault collateral,
+and bond allocations use existing circulation, excluding the 10% liquid reserve.
+Unfunded allocations remain requests for later mining issuance; pending requests
+are not circulating supply. The header disclosure shows the issuance and burns.
 
-Lowering Vaulting APY holds the phase's ten-day earnings fixed. Added Capital is
-returned as principal, increasing Vaulting Payout by the same amount. Total capital
-is `earnings / ((1 + APY / 100) ** (10 / 365) - 1)`, with a 53.99% APY floor.
-Mining auction revenue increases earnings in a subsequent mining phase. TGF assumes each
-additional ARGN of vault securitization funds one ARGN of prospective mining
-rewards; total added vault capital includes the matching 2× ARGNOT allocation.
+Securitization is combined vault collateral: Argons plus the Argon-equivalent
+value of Argonots. The snapshot does not provide separate vault Argonot holdings,
+so the engine assumes Argonot collateral worth twice the Argon collateral. The
+securitization tooltip shows both components and this assumption. Converted
+Argonot value is not counted as circulating Argons.
 
-The column scenario retains fixed prices and prospective reward allocations.
-Network totals and Days use a separate replay of the original daily growth engine,
-including ARGN/ARGNOT issuance, ARGN burns, BTC-backed issuance, and ARGNOT repricing.
-Each phase caches daily engine states. Mining slider progress (log APY) and vaulting
-slider progress (added capital fraction) preview that timeline, interpolating network
-metrics between daily settlements. Fractional days are previews, not extra mint events.
-Switching sides preserves the exact previewed time and network values. If the switch
-occurs partway through a day, the pending daily settlement finishes under its original
-rules before subsequent days use the new side. Unvisited future days are discarded.
-Reversing or cancelling restores the active adjustment's baseline. Transfers are never added to circulation a second time.
-Operator balances are unchanged; personal portfolio figures remain placeholders. The cards
-show the changes since the start of the active phase. A receiving
-slider can rise above its snapshot default; a dragged slider cannot rise above
-its value at the start of that phase. Mining has a 53.3% floor; vaulting has a 53.99% floor. At the start of each phase, the receiving
-scale is sized for its projected APY when the active slider reaches the floor,
-with headroom, and stays fixed during adjustments. Displayed APYs use the website's 1T% display cap.
+Each slider phase caches daily previews. The mining slider selects exact whole
+miner counts; arrow keys add or remove one miner. The engine limits each day's
+recruitment and settles only the days needed to reach that count. The BTC slider
+selects fractional BTC amounts; arrow keys move 0.1% along its logarithmic track.
+BTC issuance uses the actual bounded deposit, and the final day's vault collateral
+growth is limited to the requested portion. End selects the
+phase endpoint, and Home restores its baseline. Re-grabbing the same side keeps that
+baseline reversible. Switching sides starts a new phase from the selected day.
+A continuous drag is one Undo action; replay restores network and portfolio
+accounting without double minting.
 
-Mining slider positions use a logarithmic APY scale. The vaulting slider uses a
-linear added-capital fraction so its thumb follows the shaded fill.
-Keyboard arrows move 0.1% of the track; End reaches the floor and Home restores
-the active phase's starting APY. Added amounts are shown separately from the
-phase's base capital and payout columns, with proportional fills. Transfers are
-shown in argon equivalents, and chevron arrows indicate their direction.
+The 53.99% APY benchmark limits each adjustment; engine settlements can finish
+below it. Competition may stop increasing before that benchmark, especially
+when BTC reaches the scenario's 17.5M cap. An explicit Advance one day control
+continues the existing reward and bid adjustments when competition cannot grow.
+Daily advances are also Undo actions. Days never advance with wall-clock time.
+Reloading or restarting restores the saved snapshot.

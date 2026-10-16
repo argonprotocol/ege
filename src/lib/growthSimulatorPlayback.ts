@@ -33,9 +33,9 @@ export interface PlaybackFrame {
   stopReason: "bitcoin-capacity" | "no-progress" | "invalid-state" | null;
 }
 
-export function createPlayback(state: GrowthCycleState, miningAllocation?: number): PlaybackFrame {
+export function createPlayback(state: GrowthCycleState, miningAllocation?: number, initialCapital?: number): PlaybackFrame {
   if (!isValidGrowthState(state)) throw new Error("Invalid initial growth state");
-  const operatorAccount = createOperatorAccount(state, miningAllocation);
+  const operatorAccount = createOperatorAccount(state, miningAllocation, initialCapital);
   return {
     state,
     operatorAccount,

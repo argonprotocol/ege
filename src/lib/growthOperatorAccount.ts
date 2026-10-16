@@ -35,15 +35,19 @@ export interface GrowthOperatorAccount {
 export function createOperatorAccount(
   state: GrowthCycleState,
   miningAllocation = 0.1 + Math.random() * 0.8,
+  initialCapital = INITIAL_CAPITAL,
 ): GrowthOperatorAccount {
   if (!Number.isFinite(miningAllocation) || miningAllocation < 0 || miningAllocation > 1) {
     throw new Error("Invalid operator allocation");
   }
+  if (!Number.isFinite(initialCapital) || initialCapital <= 0) {
+    throw new Error("Invalid initial portfolio capital");
+  }
   const account: GrowthOperatorAccount = {
-    initialCapital: INITIAL_CAPITAL,
+    initialCapital,
     miningAllocation,
-    miningCash: INITIAL_CAPITAL * miningAllocation,
-    vaultCash: INITIAL_CAPITAL * (1 - miningAllocation),
+    miningCash: initialCapital * miningAllocation,
+    vaultCash: initialCapital * (1 - miningAllocation),
     miningPositions: [],
     vaultArgons: 0,
     vaultArgonots: 0,
@@ -54,7 +58,7 @@ export function createOperatorAccount(
     vaultIncome: 0,
     bidExpenses: 0,
     elapsedDays: state.elapsedDays,
-    value: INITIAL_CAPITAL,
+    value: initialCapital,
   };
   investAvailableCapital(account, state);
   account.value = operatorAccountValue(account, state);
