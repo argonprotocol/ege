@@ -36,7 +36,7 @@
       </div>
       <p class="scenario-note">A learning simulation using a saved network snapshot. The mining slider selects whole miners; changes settle over the required days. The diagram, circulation, and portfolio share those settlements. APY annualizes a ten-day return.</p>
     </main>
-    <GameOverlay v-if="showWelcome" @close="showWelcome = false" title="Welcome to The Exponential Growth Engine Model">
+    <GameOverlay v-if="showWelcome" @close="showWelcome = false" title="Welcome to The Exponential Growth Engine">
       <p>Mining and vaulting grow together. Discover how adding competition on one side changes the returns on the other.</p>
       <p><strong>Add miners</strong> to see how their bids support vault revenue. Then <strong>add BTC</strong> to see how vault capital funds mining rewards.</p>
       <p>Move a slider to add miners or BTC. The mining slider selects whole miners, and adjustments settle over the required days. The left end is the phase’s starting amount; the right end reaches the adjustment toward 53.99% APY or the available competition limit. Follow the highlighted path as each change moves through the ecosystem.</p>

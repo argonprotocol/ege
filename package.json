@@ -7,6 +7,7 @@
     "dev": "vite",
     "typecheck": "vue-tsc -b",
     "build": "yarn typecheck && vite build",
+    "deploy": "yarn build && gh-pages -d dist",
     "preview": "vite preview",
     "update:argon": "node generators/fetchArgonBasics.js",
     "test": "node tests/run.cjs"
@@ -19,6 +20,7 @@
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^22.5.5",
     "@vitejs/plugin-vue": "^5.1.2",
+    "gh-pages": "^6.2.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.6.2",
     "vite": "^5.4.1",

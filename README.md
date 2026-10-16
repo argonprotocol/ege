@@ -1,4 +1,4 @@
-# Exponential Growth Engine Model
+# Exponential Growth Engine
 
 A desktop foundation for TGF, built with Vue, TypeScript, and Vite.
 It retains Argon's branding and the visual styling of the original LLB website.
@@ -26,6 +26,19 @@ yarn preview
 The build includes TypeScript checking. `yarn test` compiles the simulation modules
 into a temporary directory and runs the Node test runner without additional test
 dependencies. There are no scheduled data-refresh jobs.
+
+## Deployment
+
+Run `yarn deploy` to build the app, including TypeScript checking, and publish
+`dist` to the `gh-pages` branch of this repository's `origin` remote. This uses
+the same deployment command as UDS and requires Git push access to the repository.
+
+In the repository's GitHub Pages settings, select deployment from the `gh-pages`
+branch and the `/ (root)` folder after the first deployment creates the branch.
+The current asset paths assume hosting at the root of a domain, as UDS does.
+For GitHub's project URL (`https://argonprotocol.github.io/ege/`), set
+`base: '/ege/'` in `vite.config.ts` before deploying. For a custom domain, configure
+it in GitHub Pages and add its hostname to `public/CNAME` so deployments preserve it.
 
 ## Structure
 

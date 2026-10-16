@@ -5,7 +5,7 @@
       <a class="brand-logo" href="https://argon.network/" aria-label="Argon Network"><Logo aria-hidden="true" /></a>
       <div><div class="model-selector" @mouseenter="isModelMenuOpen = true" @mouseleave="isModelMenuOpen = false" @focusin="isModelMenuOpen = true" @focusout="closeModelMenuOnBlur" @keydown.esc.stop.prevent="isModelMenuOpen = false">
         <h1><button type="button" class="model-selector-button" :aria-expanded="isModelMenuOpen" aria-controls="model-navigation" @click="isModelMenuOpen = true" @keydown.down.prevent="isModelMenuOpen = true">
-          Exponential Growth Engine Model
+          Exponential Growth Engine
           <svg class="model-caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6" /></svg>
         </button></h1>
         <nav v-show="isModelMenuOpen" id="model-navigation" class="model-dropdown" aria-label="Models">
@@ -82,7 +82,7 @@ import { microgonToArgon } from '../lib/currencyUtils';
 const props = defineProps<{ circulation: number; currentCirculation: number; lockedBitcoins: number; issuance: { mining: number; bitcoin: number; burned: number }; days: string; snapshotAt: string; initialPortfolio: number; currentPortfolio: number; miningIncome: number; vaultIncome: number; canUndo: boolean; running: boolean; playDisabled: boolean; playbackStatus: string; playbackAlert: string }>();
 defineEmits<{ reset: []; help: []; undo: []; play: []; customize: [] }>();
 const panicUrl = computed(() => {
-  const url = new URL('http://localhost:5175/');
+  const url = new URL('https://uds.argon.network/');
   url.searchParams.set('circulation', String(props.currentCirculation));
   url.searchParams.set('bitcoinsInLiquidLocks', String(props.lockedBitcoins));
   return url.href;
@@ -125,7 +125,7 @@ const circulationBreakdown = computed(() => [
 .model-dropdown a { display: block; position: static; padding: 8px 12px; border-radius: 3px; color: inherit; text-decoration: none; white-space: normal; }
 .model-dropdown a:hover, .model-dropdown a:focus-visible { color: #73179e; background: #FAF4FC; }
 @media (max-width: 640px) { .model-dropdown { font-size: 16px; } }
-.app-header { position: relative; z-index: 10; }
+.app-header { position: relative; z-index: 19; }
 
 .playback-alert { position: static; gap: 5px; }
 .playback-alert .simulation-play { cursor: default; background: #f7f4fa; border-color: #ded8e4; }
