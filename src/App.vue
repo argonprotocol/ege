@@ -4,7 +4,7 @@
       :issuance="settledView.issuance" :initial-portfolio="settledView.frame.operatorAccount.initialCapital" :current-portfolio="settledView.frame.operatorValue"
       :mining-income="settledView.frame.operatorAccount.miningIncome" :vault-income="settledView.frame.operatorAccount.vaultIncome" :can-undo="canUndo"
       :running="autoPlaying" :play-disabled="dragActive || (busy && !autoPlaying) || Boolean(playbackAlert)" :playback-status="playbackStatus" :playback-alert="playbackAlert"
-      @customize="openPortfolioEditor" @play="togglePlayback" @reset="reset" @help="showHelp = true" @undo="undo" />
+      @customize="openPortfolioEditor" @play="togglePlayback" @reset="reset(); showWelcome = true" @help="showHelp = true" @welcome="showWelcome = true" @undo="undo" />
     <main class="learning-workspace">
       <LearningGuide :style="{ visibility: busy ? 'hidden' : 'visible' }" :mining-done="miningDone" :completed="completed" :exploring="exploring" @vaulting="active = 'vaulting'" @explore="skipGuide" @restart="reset" />
       <EcosystemDiagram @activate="!busy && (active = $event)" :focused="restoredFlow?.active ?? active" :active="restoredFlow ? (restoredFlow.feedback?.side ?? restoredFlow.active) : (feedback?.side ?? active)" :preparing="dragActive && !restoredFlow" :stage="restoredFlow?.stage ?? (dragActive ? 1 : stage)" :busy="(busy && !autoPlaying) || (dragActive && !restoredFlow)" :before="beforeValues" :after="afterValues"
@@ -36,11 +36,15 @@
       </div>
       <p class="scenario-note">A learning simulation using a saved network snapshot. The mining slider selects whole miners; changes settle over the required days. The diagram, circulation, and portfolio share those settlements. APY annualizes a ten-day return.</p>
     </main>
-    <GameOverlay v-if="showWelcome" @close="showWelcome = false" title="Welcome to The Exponential Growth Engine">
-      <p>Mining and vaulting grow together. Discover how adding competition on one side changes the returns on the other.</p>
-      <p><strong>Add miners</strong> to see how their bids support vault revenue. Then <strong>add BTC</strong> to see how vault capital funds mining rewards.</p>
-      <p>Move a slider to add miners or BTC. The mining slider selects whole miners, and adjustments settle over the required days. The left end is the phase’s starting amount; the right end reaches the adjustment toward 53.99% APY or the available competition limit. Follow the highlighted path as each change moves through the ecosystem.</p>
-      <p>Your simulated ₳{{ startingPortfolio.toLocaleString('en-US') }} portfolio shows the personal effect. You can undo any adjustment and explore at your own pace.</p>
+    <GameOverlay v-if="showWelcome" welcome @close="showWelcome = false" title="The Exponential Growth Engine">
+      <p>Mining and vaulting grow together in the Argon ecosystem. This simulation lets you explore how competition on one side creates opportunities on the other.</p>
+      <p>Explore two connections:</p>
+      <ol>
+        <li><strong>Add miners</strong> to see how their bids support vault revenue.</li>
+        <li><strong>Add BTC</strong> to see how vault capital funds mining rewards.</li>
+      </ol>
+      <p>Move a slider and follow the highlighted path as your adjustment settles over the required network days. Your simulated ₳{{ startingPortfolio.toLocaleString('en-US') }} portfolio shows the personal effect.</p>
+      <p>You can undo adjustments and explore at your own pace.</p>
       <template #actions><button class="primary-button" @click="showWelcome = false">Start with mining →</button></template>
     </GameOverlay>
     <GameOverlay v-if="showPortfolioEditor" @close="showPortfolioEditor = false" title="Customize your starting investment">

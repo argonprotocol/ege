@@ -14,7 +14,25 @@
         </nav>
       </div><span>Discover how the ecosystem grows together</span></div>
     </div>
-    <div class="header-actions"><button class="icon-button" @click="$emit('reset')" title="Restart lesson" aria-label="Restart lesson"><ResetIcon /></button><button class="icon-button" @click="$emit('help')" title="About this simulation" aria-label="About this simulation"><InformationIcon /></button></div>
+    <div class="header-actions">
+      <button class="icon-button" @click="$emit('reset')" title="Restart lesson" aria-label="Restart lesson"><ResetIcon class="outlined" aria-hidden="true" /><ResetSolid class="solid" aria-hidden="true" /></button>
+      <DropdownMenuRoot :modal="false">
+        <DropdownMenuTrigger as-child>
+          <button class="icon-button" title="Learn More" aria-label="Learn more"><InformationIcon class="outlined" aria-hidden="true" /><InformationSolid class="solid" aria-hidden="true" /></button>
+        </DropdownMenuTrigger>
+        <DropdownMenuPortal>
+          <DropdownMenuContent class="info-menu" align="end" :align-offset="-40" :side-offset="8" :collision-padding="8" aria-label="Learn more">
+            <DropdownMenuItem class="info-menu-item" @select="$emit('help')">About This Simulation</DropdownMenuItem>
+            <DropdownMenuSeparator class="info-menu-separator" />
+            <DropdownMenuItem class="info-menu-item" @select="$emit('welcome')">Show Welcome</DropdownMenuItem>
+            <DropdownMenuSeparator class="info-menu-separator" />
+            <DropdownMenuItem as-child><a class="info-menu-item" href="https://argon.network/">Jump to Argon Network</a></DropdownMenuItem>
+            <DropdownMenuArrow class="info-menu-arrow" :width="24" :height="12" />
+          </DropdownMenuContent>
+        </DropdownMenuPortal>
+      </DropdownMenuRoot>
+      <a class="icon-button" href="https://github.com/argonprotocol/ege" target="_blank" rel="noopener noreferrer" title="Open Codebase" aria-label="Open source code"><GithubIcon class="outlined" aria-hidden="true" /><GithubSolid class="solid" aria-hidden="true" /></a>
+    </div>
   </header>
   <section class="portfolio-bar" aria-label="Simulated portfolio">
     <TooltipProvider :delay-duration="150" :disable-hoverable-content="true">
@@ -58,7 +76,7 @@
         </div>
         <div v-if="group.className === 'network-stats'" class="portfolio-callout circulation-callout">
           <svg viewBox="0 0 90 30" preserveAspectRatio="none" fill="none" aria-hidden="true"><path d="M89 25H29Q9 25 9 3m-5 7 5-7 5 7" /></svg>
-          <span><a :href="panicUrl" target="_blank" rel="noopener noreferrer">What if the market panics and dumps everything?</a></span>
+          <span><a :href="panicUrl" target="_blank" class="cursor-pointer" rel="noopener noreferrer">What if the market panics and dumps everything?</a></span>
         </div>
       </div>
     </TooltipProvider>
@@ -74,13 +92,18 @@ function closeModelMenuOnBlur(event: FocusEvent) {
 }
 import { computed, ref } from 'vue';
 import { TooltipProvider, TooltipRoot, TooltipTrigger, TooltipPortal, TooltipContent, TooltipArrow } from 'reka-ui';
+import { DropdownMenuRoot, DropdownMenuTrigger, DropdownMenuPortal, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuArrow } from 'reka-ui';
 import Logo from '../assets/logo.svg';
 import ResetIcon from '../assets/reset-outlined.svg';
+import ResetSolid from '../assets/reset-solid.svg';
+import GithubIcon from '../assets/github-outlined.svg';
+import GithubSolid from '../assets/github-solid.svg';
 import InformationIcon from '../assets/information-outlined.svg';
+import InformationSolid from '../assets/information-solid.svg';
 import { mainnetBasics } from '../lib/mainnet';
 import { microgonToArgon } from '../lib/currencyUtils';
 const props = defineProps<{ circulation: number; currentCirculation: number; lockedBitcoins: number; issuance: { mining: number; bitcoin: number; burned: number }; days: string; snapshotAt: string; initialPortfolio: number; currentPortfolio: number; miningIncome: number; vaultIncome: number; canUndo: boolean; running: boolean; playDisabled: boolean; playbackStatus: string; playbackAlert: string }>();
-defineEmits<{ reset: []; help: []; undo: []; play: []; customize: [] }>();
+defineEmits<{ reset: []; help: []; welcome: []; undo: []; play: []; customize: [] }>();
 const panicUrl = computed(() => {
   const url = new URL('https://uds.argon.network/');
   url.searchParams.set('circulation', String(props.currentCirculation));
@@ -117,7 +140,7 @@ const circulationBreakdown = computed(() => [
 ]);
 </script>
 <style scoped>
-.model-selector { position: relative; min-width: 0; }
+.model-selector { position: relative; z-index: 19; min-width: 0; }
 .model-selector-button { display: flex; align-items: center; gap: 8px; padding: 0; border: 0; background: transparent; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 .model-selector-button:focus-visible { outline: 2px solid #a526df; outline-offset: 4px; border-radius: 4px; }
 .model-caret { width: 16px; height: 16px; flex-shrink: 0; }
@@ -125,7 +148,7 @@ const circulationBreakdown = computed(() => [
 .model-dropdown a { display: block; position: static; padding: 8px 12px; border-radius: 3px; color: inherit; text-decoration: none; white-space: normal; }
 .model-dropdown a:hover, .model-dropdown a:focus-visible { color: #73179e; background: #FAF4FC; }
 @media (max-width: 640px) { .model-dropdown { font-size: 16px; } }
-.app-header { position: relative; z-index: 19; }
+.app-header { position: relative; }
 
 .playback-alert { position: static; gap: 5px; }
 .playback-alert .simulation-play { cursor: default; background: #f7f4fa; border-color: #ded8e4; }

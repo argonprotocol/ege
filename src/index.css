@@ -24,12 +24,22 @@ button:disabled { cursor: default; }
 .brand-logo svg path { fill: #73179e; }
 .branding h1 { font-size: clamp(16px, 1.4vw, 24px); line-height: 2rem; font-weight: 200; color: #475569; margin: 0; padding: 12px 0; position: relative; top: .5px; }
 .branding span { font-size: 11px; color: #80798a; }
-.header-actions { display: flex; align-items: center; gap: 14px; }
+.header-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
 .text-button { background: transparent; border: 0; padding: 8px 0; color: #7c399c; font-size: 12px; font-weight: 600; }
 .text-button:disabled { color: #b4adbb; }
 .icon-button { display: inline-flex; align-items: center; justify-content: center; min-width: 32px; min-height: 44px; padding: 4px; background: transparent; border: 0; color: #73179e; }
 .icon-button svg { width: 24px; height: 24px; }
 .icon-button svg path { fill: currentColor; }
+.header-actions .icon-button { flex-shrink: 0; }
+.header-actions .icon-button .solid { display: none; }
+.header-actions .icon-button:hover .outlined { display: none; }
+.header-actions .icon-button:hover .solid { display: block; }
+.info-menu { z-index: 19; width: max-content; max-width: calc(100vw - 16px); max-height: var(--reka-dropdown-menu-content-available-height); padding: 4px; border-radius: 6px; background: white; color: #111827; font-size: 14px; font-weight: 300; line-height: 24px; text-align: right; box-shadow: 0 10px 15px -3px #0000001a, 0 4px 6px -4px #0000001a, 0 0 0 1px #1118270d; }
+.info-menu-item { display: block; padding: 8px 12px; color: inherit; text-decoration: none; cursor: pointer; outline: none; }
+.info-menu-item:nth-child(-n+3) { padding-bottom: 4px; }
+.info-menu-item[data-highlighted] { color: #c026d3; background: #faf4fc; }
+.info-menu-separator { height: 1px; background: #e5e7eb; }
+.info-menu-arrow { fill: white; stroke: #1118271a; stroke-width: 1; }
 .portfolio-bar { display: flex; align-items: center; flex-wrap: wrap; gap: 18px 36px; padding: 12px 28px; border-bottom: 1px solid #e5e0e9; background: #fff; }
 .eyebrow { display: block; color: #9272a3; font-size: 10px; letter-spacing: 1.4px; font-weight: 600; }
 .portfolio-values { display: flex; align-items: baseline; gap: 12px; margin-top: 4px; font-size: 19px; font-variant-numeric: tabular-nums; }
@@ -105,6 +115,24 @@ button:disabled { cursor: default; }
 .game-dialog h2 { font-size: 23px; letter-spacing: -.5px; margin: 15px 0 20px; }
 .dialog-copy { font-size: 14px; line-height: 1.7; color: #807085; }
 .dialog-actions { display: flex; justify-content: flex-end; margin-top: 24px; }
+.welcome-scrim { background: rgb(107 114 128 / .75); backdrop-filter: none; }
+.welcome-dialog { width: min(768px,calc(100vw - 32px)); padding: 20px 24px 16px; border-radius: 8px; box-shadow: 0 20px 25px -5px rgb(0 0 0 / .1), 0 8px 10px -6px rgb(0 0 0 / .1); }
+.welcome-dialog .dialog-eyebrow { display: block; padding: 0 12px; color: rgb(15 23 42 / .3); font-size: 18px; font-weight: 700; line-height: 28px; letter-spacing: normal; }
+.welcome-dialog h2 { margin: 0; padding: 0 12px; color: #111827; font-size: 36px; font-weight: 700; line-height: 1.12; letter-spacing: normal; }
+.welcome-dialog .dialog-copy { margin-top: 20px; padding: 16px 12px 24px; border-block: 1px solid #e5e7eb; color: #6b7280; font-size: 16px; line-height: 1.5; }
+.welcome-dialog .dialog-copy p { margin: 0 0 12px; }
+.welcome-dialog .dialog-copy p:last-child { margin-bottom: 0; }
+.welcome-dialog .dialog-copy ol { margin: 0 0 16px; padding-left: 36px; list-style: decimal; }
+.welcome-dialog .dialog-copy li + li { margin-top: 12px; }
+.welcome-dialog .dialog-actions { margin-top: 16px; padding: 0 12px; }
+.welcome-dialog .primary-button { min-height: 44px; padding: 8px 32px; border: 1px solid #86198f; border-radius: 6px; background: #c026d3; font-size: 14px; line-height: 20px; box-shadow: inset 1px 1px 1px rgb(255 255 255 / .8); }
+.welcome-dialog .primary-button:hover { background: #d946ef; border-color: #701a75; }
+.welcome-dialog .dialog-close { top: 8px; right: 8px; width: 32px; height: 32px; color: #6b7280; }
+@media (max-width: 600px) {
+  .welcome-dialog { padding: 20px 16px 16px; }
+  .welcome-dialog h2 { font-size: 30px; overflow-wrap: break-word; }
+  .welcome-dialog .dialog-eyebrow, .welcome-dialog h2, .welcome-dialog .dialog-copy, .welcome-dialog .dialog-actions { padding-inline: 4px; }
+}
 @media (prefers-reduced-motion: no-preference) {
   .operations { transition: grid-template-columns 300ms ease; }
   .operation-panel, .transfer-route { transition: border-color 200ms ease, background-color 200ms ease, box-shadow 200ms ease; }
@@ -126,7 +154,6 @@ button:disabled { cursor: default; }
   .back-to-argon svg { width: 16px; height: 16px; }
   .branding h1 { font-size: 16px; }
   .branding { gap: 8px; }
-  .header-actions { gap: 10px; }
   .header-actions .text-button { font-size: 0; }
   .header-actions .text-button::after { content: '↶ Undo'; font-size: 12px; }
   .portfolio-bar { padding: 12px; gap: 14px; }
@@ -143,7 +170,8 @@ button:disabled { cursor: default; }
   .panel-numbers strong { font-size: 30px; }
 }
 .dialog-close { position: absolute; right: 18px; top: 14px; border: 0; background: transparent; color: #8a7b96; font-size: 24px; }
-.dialog-close:focus-visible { outline: none; }
+.dialog-close:focus { outline: none; }
+.dialog-close:not(:disabled) { cursor: pointer; }
 /* One connected story is the focus; controls and account stay secondary. */
 .portfolio-bar { background: transparent; padding-top: 8px; padding-bottom: 8px; }
 .portfolio-values > strong { font-size: 19px; color: #695575; }
